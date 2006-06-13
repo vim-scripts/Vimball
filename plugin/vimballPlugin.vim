@@ -22,6 +22,7 @@ set cpo&vim
 com! -ra -na=+ -bang MkVimball call vimball#MkVimball(<line1>,<line2>,<bang>0,<f-args>)
 com! -na=0 UseVimball  call vimball#Vimball(1)
 com! -na=0 VimballList call vimball#Vimball(0)
+com! -na=0 RmVimball   call vimball#RmVimball()
 au BufEnter *.vba.gz,*.vba.bz2,*.vba.zip call vimball#Decompress(expand("<amatch>"))
 au BufEnter *.vba call vimball#ShowMesg("Source this file to extract it! (:so %)")
 

@@ -1,7 +1,7 @@
 " vimball : construct a file containing both paths and files
 " Author: Charles E. Campbell, Jr.
-" Date:   May 26, 2006
-" Version: 14
+" Date:   Jun 13, 2006
+" Version: 15
 " GetLatestVimScripts: 1502 1 :AutoInstall: vimball.vim
 " Copyright: (c) 2004-2006 by Charles E. Campbell, Jr.
 "            The VIM LICENSE applies to Vimball.vim, and Vimball.txt
@@ -15,7 +15,7 @@ if &cp || exists("g:loaded_vimball")
  finish
 endif
 let s:keepcpo        = &cpo
-let g:loaded_vimball = "v14"
+let g:loaded_vimball = "v15"
 set cpo&vim
 
 " =====================================================================
@@ -42,17 +42,7 @@ fun! vimball#MkVimball(line1,line2,writelevel,vimballname) range
   " user option bypass
   call s:SaveSettings()
 
-  " go to vim plugin home
-  for home in split(&rtp,',') + ['']
-   if isdirectory(home) | break | endif
-  endfor
-  if home == ""
-   let home= substitute(&rtp,',.*$','','')
-  endif
-  if (has("win32") || has("win95") || has("win64") || has("win16"))
-   let home= substitute(home,'/','\\','ge')
-  endif
-"  call Decho("home<".home.">")
+  let home= s:VimballHome()
 
   " save current directory
   let curdir = getcwd()
@@ -166,9 +156,10 @@ fun! vimball#Vimball(really)
   endif
 "  call Decho("home<".home.">")
 
-  " save current directory
+  " save current directory and remove older same-named vimball, if any
   let curdir = getcwd()
   call s:ChgDir(home)
+  call vimball#RmVimball()
 
   let linenr  = 4
   let filecnt = 0
@@ -207,6 +198,7 @@ fun! vimball#Vimball(really)
      if !isdirectory(dirname)
 "     call Decho("making <".dirname.">")
       call mkdir(dirname)
+	  call s:RecordInVar(home,"rmdir ".dirname)
      endif
     endwhile
    endif
@@ -233,6 +225,7 @@ fun! vimball#Vimball(really)
 "    call Decho("exe w! ".fnamepath)
     exe "silent w! ".fnamepath
     echo "wrote ".fnamepath
+	call s:RecordInVar(home,"call delete(".fnamepath.")")
    endif
 
    " return to tab with vimball
@@ -266,6 +259,9 @@ fun! vimball#Vimball(really)
    echomsg " "
    let filecnt= filecnt + 1
   endwhile
+
+  " record actions in <VimballRecord.txt>
+  call s:RecordInFile(home)
 
   " restore events, delete tab and buffer
   exe "tabn ".vbtabnr
@@ -344,6 +340,136 @@ fun! vimball#ShowMesg(msg)
 "   let ich= ich + 1
 "  endwhile
 "  call Dret("vimball#ShowMesg")
+endfun
+
+" ---------------------------------------------------------------------
+" RecordInVar: record a un-vimball command in the VimballRecord.txt {{{2
+fun! s:RecordInVar(home,cmd)
+"  call Dfunc("RecordInVar(home<".a:home."> cmd<:".a:cmd.">)")
+  if a:cmd =~ '^rmdir'
+   if !exists("s:recorddir")
+    let s:recorddir= substitute(a:cmd,'^rmdir','call s:Rmdir(','').")"
+   else
+    let s:recorddir= s:recorddir."|".a:cmd
+   endif
+"   call Decho("recorddir=".s:recorddir)
+  elseif !exists("s:recordfile")
+   let s:recordfile= a:cmd
+"   call Decho("recordfile=".s:recordfile)
+  else
+   let s:recordfile= s:recordfile."|".a:cmd
+"   call Decho("recordfile=".s:recordfile)
+  endif
+"  call Dret("RecordInVar")
+endfun
+
+" ---------------------------------------------------------------------
+" RecordInFile: {{{2
+fun! s:RecordInFile(home)
+"  call Dfunc("RecordInFile()")
+  if exists("g:vimball_norecord")
+"   call Dret("RecordInFile : (g:vimball_norecord)")
+   return
+  endif
+
+  if exists("s:record")
+   let curdir= getcwd()
+   call s:ChgDir(a:home)
+   keepalt keepjumps 1split 
+   silent! keepalt keepjumps e VimballRecord.txt
+   $
+   let cmd= expand("%:tr").": "
+   if exists("s:recordfile") && exists("s:recorddir")
+   	let cmd= cmd.s:recordfile."|".s:recorddir
+   elseif exists("s:recorddir")
+   	let cmd= cmd.s:recorddir
+   elseif exists("s:recordfile")
+   	let cmd= cmd.s:recordfile
+   else
+"    call Dret("RecordInFile")
+	return
+   endif
+   keepalt keepjumps put=cmd
+   silent! keepalt keepjumps g/^\s*$/d
+   silent! keepalt keepjumps wq!
+   call s:ChgDir(curdir)
+   unlet s:recordfile
+   unlet s:recorddir
+  endif
+"  call Dret("RecordInFile")
+endfun
+
+" ---------------------------------------------------------------------
+" vimball#RmVimball: remove any files, remove any directories made by any {{{2
+"               previous vimball extraction based on a file of the current
+"               name.
+fun! vimball#RmVimball(...)
+"  call Dfunc("vimball#RmVimball() a:0=".a:0)
+  if exists("g:vimball_norecord")
+"   call Dret("vimball#RmVimball : (g:vimball_norecord)")
+   return
+  endif
+
+  if a:0 == 0
+   let curfile= '^'.expand("%:tr").": "
+  else
+   let curfile= a:1.": "
+  endif
+  let home   = s:VimballHome()
+  let curdir = getcwd()
+"  call Decho("home   <".home.">")
+"  call Decho("curfile<".curfile.">")
+"  call Decho("curdir <".curdir.">")
+
+  call s:ChgDir(home)
+  if filereadable("VimballRecord.txt")
+"   call Decho("curfile<".curfile.">")
+   keepalt keepjumps 1split 
+   silent! keepalt keepjumps e VimballRecord.txt
+   let keepsrch= @/
+   if search(curfile,'cw')
+   	let exestring= substitute(getline("."),curfile,'','')
+"	call Decho("exe ".exestring)
+	silent! keepalt keepjumps exe exestring
+	silent! keepalt keepjumps d
+   endif
+   silent! keepalt keepjumps g/^\s*$/d
+   silent! keepalt keepjumps wq!
+   let @/= keepsrch
+  endif
+  call s:ChgDir(curdir)
+
+"  call Dret("vimball#RmVimball")
+endfun
+
+" ---------------------------------------------------------------------
+" Rmdir: {{{2
+fun! s:Rmdir(dirname)
+"  call Dfunc("s:Rmdir(dirname<".a:dirname.">)")
+  if (has("win32") || has("win95") || has("win64") || has("win16")) && &shell !~? 'sh$'
+    call system("del ".a:fname)
+  else
+   call system("/bin/rm -f ".a:fname)
+  endif
+"  call Dret("s:Rmdir")
+endfun
+
+" ---------------------------------------------------------------------
+" VimballHome: {{{2
+fun! s:VimballHome()
+"  call Dfunc("VimballHome()")
+  " go to vim plugin home
+  for home in split(&rtp,',') + ['']
+   if isdirectory(home) | break | endif
+  endfor
+  if home == ""
+   let home= substitute(&rtp,',.*$','','')
+  endif
+  if (has("win32") || has("win95") || has("win64") || has("win16"))
+   let home= substitute(home,'/','\\','ge')
+  endif
+"  call Dret("VimballHome <".home.">")
+  return home
 endfun
 
 " ---------------------------------------------------------------------
