@@ -19,12 +19,12 @@ set cpo&vim
 
 " ------------------------------------------------------------------------------
 " Public Interface: {{{1
-com! -ra -na=+ -bang MkVimball call vimball#MkVimball(<line1>,<line2>,<bang>0,<f-args>)
-com! -na=0 UseVimball  call vimball#Vimball(1)
-com! -na=0 VimballList call vimball#Vimball(0)
-com! -na=0 RmVimball   call vimball#RmVimball()
+com! -ra   -complete=dir -na=+ -bang MkVimball call vimball#MkVimball(<line1>,<line2>,<bang>0,<f-args>)
+com! -na=? -complete=dir UseVimball  call vimball#Vimball(1,<f-args>)
+com! -na=0               VimballList call vimball#Vimball(0)
+com! -na=* -complete=dir RmVimball   call vimball#RmVimball(<f-args>)
 au BufEnter *.vba.gz,*.vba.bz2,*.vba.zip call vimball#Decompress(expand("<amatch>"))
-au BufEnter *.vba call vimball#ShowMesg("Source this file to extract it! (:so %)")
+au BufEnter *.vba set noma bt=nofile|call vimball#ShowMesg("Source this file to extract it! (:so %)")
 
 let &cpo= s:keepcpo
 unlet s:keepcpo
