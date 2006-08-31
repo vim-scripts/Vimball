@@ -1,7 +1,7 @@
-" vimball : construct a file containing both paths and files
+" vimball.vim : construct a file containing both paths and files
 " Author: Charles E. Campbell, Jr.
-" Date:   Jun 27, 2006
-" Version: 16
+" Date:   Aug 01, 2006
+" Version: 18
 " GetLatestVimScripts: 1502 1 :AutoInstall: vimball.vim
 " Copyright: (c) 2004-2006 by Charles E. Campbell, Jr.
 "            The VIM LICENSE applies to Vimball.vim, and Vimball.txt
@@ -15,7 +15,7 @@ if &cp || exists("g:loaded_vimball")
  finish
 endif
 let s:keepcpo        = &cpo
-let g:loaded_vimball = "v16"
+let g:loaded_vimball = "v18"
 set cpo&vim
 
 " =====================================================================
@@ -92,7 +92,7 @@ fun! vimball#MkVimball(line1,line2,writelevel,...) range
 	call setline(3,'finish')
 	let lastline= line(".")
    endif
-   call setline(lastline  ,svfile)
+   call setline(lastline  ,substitute(svfile,'$','	[[[1',''))
    call setline(lastline+1,0)
 
    " write the file from the tab
@@ -188,7 +188,7 @@ fun! vimball#Vimball(really,...)
   exe "tabn ".curtabnr
 "  call Decho("linenr=".linenr." line$=".line("$"))
   while 1 < linenr && linenr < line("$")
-   let fname   = getline(linenr)
+   let fname   = substitute(getline(linenr),'\t\[\[\[1$','','e')
    let fsize   = getline(linenr+1)
    let filecnt = filecnt + 1
 "   call Decho("fname<".fname."> fsize=".fsize." filecnt=".filecnt)
@@ -204,9 +204,9 @@ fun! vimball#Vimball(really,...)
    " make directories if they don't exist yet
    if a:really
 "    call Decho("making directories if they don't exist yet (fname<".fname.">)")
-    let fnamebuf= fname
-	let dirpath = home
-    while fnamebuf =~ '[\/]'
+    let fnamebuf= substitute(fname,'\\','/','ge')
+	let dirpath = substitute(home,'\\','/','ge')
+    while fnamebuf =~ '/'
      let dirname  = dirpath."/".substitute(fnamebuf,'/.*$','','e')
 	 let dirpath  = dirname
      let fnamebuf = substitute(fnamebuf,'^.\{-}/\(.*\)$','\1','e')
@@ -381,6 +381,7 @@ fun! vimball#Decompress(fname)
    exe "e ".escape(fname,' \')
    call vimball#ShowMesg("Source this file to extract it! (:so %)")
   endif
+  set noma bt=nofile fmr=[[[,]]] fdm=marker
 
 "  call Dret("Decompress")
 endfun
